@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Meet Soba — WebAR</title>
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+<style>
+html,body{margin:0;height:100%;background:#151515;font-family:system-ui,sans-serif} .panel{position:fixed;z-index:20;left:16px;right:16px;top:calc(env(safe-area-inset-top) + 16px);background:rgba(0,0,0,.78);color:white;border-radius:16px;padding:14px;text-align:center;font-size:14px;line-height:1.45}button{margin-top:8px;background:#ffda00;border:0;border-radius:20px;padding:9px 20px;font-weight:700}#status{font-weight:700} .a-enter-vr{display:none!important}
+</style>
+</head>
+<body>
+<div class="panel"><div id="status">Point your camera at Soba's artwork.</div><button id="play" style="display:none">Play animation</button></div>
+<a-scene mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; uiScanning: yes; uiLoading: yes; uiError: yes;" embedded color-space="sRGB" renderer="colorManagement: true" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+<a-assets><video id="sobaVideo" src="./soba.mp4" preload="auto" playsinline webkit-playsinline muted loop crossorigin="anonymous"></video></a-assets>
+<a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+<a-entity id="target" mindar-image-target="targetIndex: 0"><a-video src="#sobaVideo" position="0 0 0.01" width="1" height="0.6472" material="shader: flat; side: double"></a-video></a-entity>
+</a-scene>
+<script>
+const video=document.getElementById('sobaVideo'),target=document.getElementById('target'),status=document.getElementById('status'),play=document.getElementById('play');
+let visible=false;
+async function startVideo(){try{video.muted=true;await video.play();play.style.display='none'}catch(e){play.style.display='inline-block';status.textContent='Artwork found. Tap Play to start the animation.'}}
+target.addEventListener('targetFound',()=>{visible=true;status.textContent='Soba found!';startVideo()});
+target.addEventListener('targetLost',()=>{visible=false;video.pause();status.textContent="Point your camera at Soba's artwork.";play.style.display='none'});
+play.addEventListener('click',()=>{if(visible)startVideo()});
+</script>
+</body></html>
