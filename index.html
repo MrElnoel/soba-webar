@@ -3,69 +3,45 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#111111">
 <title>Meet Soba</title>
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 <style>
-*{box-sizing:border-box}
-/* Dark color on html only. A body background would cover MindAR's camera video. */
-html{margin:0;width:100%;height:100%;overflow:hidden;background:#111}
-body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;color:#fff;font-family:system-ui,-apple-system,sans-serif}
-a-scene{position:absolute!important;inset:0;width:100%!important;height:100%!important;background:transparent!important}
-a-scene canvas{background:transparent!important}
-.a-enter-vr,.a-enter-ar{display:none!important}
-#hint{position:fixed;z-index:100;top:calc(env(safe-area-inset-top) + 18px);left:22px;right:22px;padding:15px 18px;border-radius:18px;background:rgba(0,0,0,.78);font-weight:750;font-size:17px;text-align:center;pointer-events:none}
-#notice{display:none;position:fixed;z-index:110;left:22px;right:22px;bottom:calc(env(safe-area-inset-bottom) + 28px);padding:14px 16px;background:rgba(0,0,0,.88);border-radius:14px;font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+html,body{margin:0;width:100%;height:100%;overflow:hidden}
+#hint{position:fixed;z-index:100;top:calc(env(safe-area-inset-top) + 18px);left:22px;right:22px;padding:15px 18px;border-radius:18px;background:rgba(0,0,0,.78);color:#fff;font:750 17px system-ui,-apple-system,sans-serif;text-align:center;pointer-events:none}
 </style>
 </head>
 <body>
 <div id="hint">Find Soba!</div>
-<div id="notice" role="status"></div>
-<a-scene mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; uiScanning: yes; uiLoading: yes; uiError: yes;" embedded renderer="alpha: true; colorManagement: true; antialias: true" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false" background="transparent: true">
-<a-assets timeout="3000"><video id="sobaVideo" src="./soba.mp4" preload="auto" muted loop playsinline webkit-playsinline crossorigin="anonymous"></video></a-assets>
-<a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-<a-entity id="target" mindar-image-target="targetIndex: 0">
-<!-- TEST OUTLINE: a red frame where the video should sit. Delete this line once Soba shows up. -->
-<a-plane position="0 0 0.005" width="1" height="1.5457" material="color: #ff3b30; wireframe: true"></a-plane>
-<a-video src="#sobaVideo" position="0 0 0.01" width="1" height="1.5457" material="shader: flat; side: double"></a-video>
-</a-entity>
+
+<a-scene
+  mindar-image="imageTargetSrc: ./targets.mind; uiScanning: yes; uiLoading: yes; uiError: yes"
+  color-space="sRGB"
+  renderer="colorManagement: true, physicallyCorrectLights"
+  vr-mode-ui="enabled: false"
+  device-orientation-permission-ui="enabled: false">
+
+  <a-assets timeout="3000">
+    <video id="sobaVideo" src="./soba.mp4" preload="auto" muted loop playsinline webkit-playsinline></video>
+  </a-assets>
+
+  <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+  <a-entity id="target" mindar-image-target="targetIndex: 0">
+    <!-- TEST: solid red box over the poster. Delete once Soba shows. -->
+    <a-plane position="0 0 0" width="1" height="1.5457" color="#ff3b30" opacity="0.5"></a-plane>
+    <a-video src="#sobaVideo" position="0 0 0.01" width="1" height="1.5457"></a-video>
+  </a-entity>
 </a-scene>
+
 <script>
-(()=>{
-const scene=document.querySelector('a-scene');
 const target=document.getElementById('target');
 const video=document.getElementById('sobaVideo');
 const hint=document.getElementById('hint');
-const notice=document.getElementById('notice');
 let found=false;
-function inform(message){notice.textContent=message;notice.style.display='block'}
-function checkCamera(){
-  const videos=[...document.querySelectorAll('video')].filter(v=>v!==video);
-  const camera=videos.find(v=>v.srcObject&&v.srcObject.getVideoTracks().length);
-  if(camera){
-    const track=camera.srcObject.getVideoTracks()[0];
-    if(track.readyState!=='live')inform('Camera stopped. Close other camera apps and reload this page.');
-    else if(camera.videoWidth===0)inform('Camera permission is on, but the preview has not started. Reload Safari and try again.');
-    // No style changes here: MindAR keeps the camera behind the 3D canvas on purpose.
-  } else {
-    inform('The camera feed did not initialize. Reload this page in Safari.');
-  }
-}
-video.addEventListener('error',()=>inform('soba.mp4 could not load. Check the filename and that it is H.264.'));
-scene.addEventListener('arReady',()=>{notice.style.display='none';setTimeout(checkCamera,1200)});
-scene.addEventListener('arError',()=>inform('Could not initialize image tracking. Check Safari camera permission and reload.'));
-scene.addEventListener('loaded',()=>{
-  if(!scene.systems['mindar-image-system'])inform('AR library did not load. Check your internet connection and reload.');
-});
-target.addEventListener('targetFound',async()=>{
-  found=true;hint.textContent='Soba is here!';notice.style.display='none';
-  try{video.muted=true;await video.play()}catch(e){inform('Artwork recognized, but Safari blocked video playback. Tap the screen once to enable it.');}
-});
+target.addEventListener('targetFound',()=>{found=true;hint.textContent='Soba is here!';video.play().catch(()=>{hint.textContent='Tap to play Soba'})});
 target.addEventListener('targetLost',()=>{found=false;video.pause();hint.textContent='Find Soba!'});
-document.addEventListener('touchend',()=>{if(found&&video.paused)video.play().then(()=>notice.style.display='none').catch(()=>{})},{passive:true});
-setTimeout(()=>{if(!found)checkCamera()},9000);
-})();
+document.addEventListener('touchend',()=>{if(found&&video.paused){video.play();hint.textContent='Soba is here!'}},{passive:true});
 </script>
 </body>
 </html>
