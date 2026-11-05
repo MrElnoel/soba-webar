@@ -1,27 +1,70 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Meet Soba — WebAR</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<title>Meet Soba</title>
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 <style>
-html,body{margin:0;height:100%;background:#151515;font-family:system-ui,sans-serif} .panel{position:fixed;z-index:20;left:16px;right:16px;top:calc(env(safe-area-inset-top) + 16px);background:rgba(0,0,0,.78);color:white;border-radius:16px;padding:14px;text-align:center;font-size:14px;line-height:1.45}button{margin-top:8px;background:#ffda00;border:0;border-radius:20px;padding:9px 20px;font-weight:700}#status{font-weight:700} .a-enter-vr{display:none!important}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#111;color:#fff;font-family:system-ui,-apple-system,sans-serif}
+/* MindAR injects the live camera video. Keep it visible below the transparent AR canvas. */
+body>video,body>.mindar-ui-overlay video{visibility:visible!important;opacity:1!important}
+a-scene{position:absolute!important;inset:0;width:100%!important;height:100%!important;background:transparent!important}
+a-scene canvas{background:transparent!important}
+.a-enter-vr,.a-enter-ar{display:none!important}
+#hint{position:fixed;z-index:100;top:calc(env(safe-area-inset-top) + 18px);left:22px;right:22px;padding:15px 18px;border-radius:18px;background:rgba(0,0,0,.78);font-weight:750;font-size:17px;text-align:center;pointer-events:none}
+#notice{display:none;position:fixed;z-index:110;left:22px;right:22px;bottom:calc(env(safe-area-inset-bottom) + 28px);padding:14px 16px;background:rgba(0,0,0,.88);border-radius:14px;font-size:13px;line-height:1.45;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
-<div class="panel"><div id="status">Point your camera at Soba's artwork.</div><button id="play" style="display:none">Play animation</button></div>
-<a-scene mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; uiScanning: yes; uiLoading: yes; uiError: yes;" embedded color-space="sRGB" renderer="colorManagement: true" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
-<a-assets><video id="sobaVideo" src="./soba.mp4" preload="auto" playsinline webkit-playsinline muted loop crossorigin="anonymous"></video></a-assets>
+<div id="hint">Find Soba!</div>
+<div id="notice" role="status"></div>
+<a-scene mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; uiScanning: yes; uiLoading: yes; uiError: yes;" embedded renderer="alpha: true; colorManagement: true; antialias: true" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false" background="transparent: true">
+<a-assets><video id="sobaVideo" src="./soba.mp4" preload="auto" muted loop playsinline webkit-playsinline></video></a-assets>
 <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-<a-entity id="target" mindar-image-target="targetIndex: 0"><a-video src="#sobaVideo" position="0 0 0.01" width="1" height="0.6472" material="shader: flat; side: double"></a-video></a-entity>
+<a-entity id="target" mindar-image-target="targetIndex: 0">
+<a-video src="#sobaVideo" position="0 0 0.01" width="1" height="1.5457" material="shader: flat; side: double; transparent: true"></a-video>
+</a-entity>
 </a-scene>
 <script>
-const video=document.getElementById('sobaVideo'),target=document.getElementById('target'),status=document.getElementById('status'),play=document.getElementById('play');
-let visible=false;
-async function startVideo(){try{video.muted=true;await video.play();play.style.display='none'}catch(e){play.style.display='inline-block';status.textContent='Artwork found. Tap Play to start the animation.'}}
-target.addEventListener('targetFound',()=>{visible=true;status.textContent='Soba found!';startVideo()});
-target.addEventListener('targetLost',()=>{visible=false;video.pause();status.textContent="Point your camera at Soba's artwork.";play.style.display='none'});
-play.addEventListener('click',()=>{if(visible)startVideo()});
+(()=>{
+const scene=document.querySelector('a-scene');
+const target=document.getElementById('target');
+const video=document.getElementById('sobaVideo');
+const hint=document.getElementById('hint');
+const notice=document.getElementById('notice');
+let found=false;
+function inform(message){notice.textContent=message;notice.style.display='block'}
+function checkCamera(){
+  const videos=[...document.querySelectorAll('video')].filter(v=>v!==video);
+  const camera=videos.find(v=>v.srcObject&&v.srcObject.getVideoTracks().length);
+  if(camera){
+    const track=camera.srcObject.getVideoTracks()[0];
+    if(track.readyState!=='live')inform('Camera stopped. Close other camera apps and reload this page.');
+    else if(camera.videoWidth===0)inform('Camera permission is on, but the preview has not started. Reload Safari and try again.');
+    else {camera.style.visibility='visible';camera.style.opacity='1';camera.style.display='block';camera.style.zIndex='0';camera.style.objectFit='cover';}
+  } else {
+    inform('The camera feed did not initialize. Reload this page in Safari. If this persists, the AR library may have failed to start.');
+  }
+}
+scene.addEventListener('arReady',()=>{notice.style.display='none';setTimeout(checkCamera,1200)});
+scene.addEventListener('arError',()=>inform('Could not initialize image tracking. Check Safari camera permission and reload.'));
+scene.addEventListener('loaded',()=>{
+  const system=scene.systems['mindar-image-system'];
+  if(!system)inform('AR library did not load. Check your internet connection and reload.');
+});
+target.addEventListener('targetFound',async()=>{
+  found=true;hint.textContent='Soba is here!';notice.style.display='none';
+  try{video.muted=true;await video.play()}catch(e){inform('Artwork recognized, but Safari blocked video playback. Tap the screen once to enable it.');}
+});
+target.addEventListener('targetLost',()=>{found=false;video.pause();hint.textContent='Find Soba!'});
+document.addEventListener('touchend',()=>{if(found&&video.paused)video.play().then(()=>notice.style.display='none').catch(()=>{})},{passive:true});
+window.addEventListener('error',e=>{if(e.message)inform('WebAR error: '+e.message)});
+window.addEventListener('unhandledrejection',e=>inform('WebAR error: '+(e.reason?.message||String(e.reason))));
+setTimeout(()=>{if(!found)checkCamera()},9000);
+})();
 </script>
-</body></html>
+</body>
+</html>
